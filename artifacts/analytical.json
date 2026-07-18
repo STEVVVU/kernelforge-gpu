@@ -1,0 +1,10 @@
+{
+  "bandwidth_bound_speedup_ceiling": 1.7501220703125,
+  "bytes_saved": 201359360,
+  "elements": 16777216,
+  "fused_bytes": 268435456,
+  "hidden": 4096,
+  "rows": 4096,
+  "traffic_reduction": 0.42861128548510846,
+  "unfused_bytes": 469794816
+}

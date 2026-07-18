@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+build/
+dist/
+*.egg-info/
+artifacts/*
+!artifacts/.gitkeep
+!artifacts/analytical.json
+
