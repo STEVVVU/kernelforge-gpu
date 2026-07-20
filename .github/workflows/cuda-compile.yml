@@ -1,0 +1,36 @@
+name: cuda-compile
+
+on:
+  push:
+    paths:
+      - "CMakeLists.txt"
+      - "include/**"
+      - "src/**"
+      - ".github/workflows/cuda-compile.yml"
+  pull_request:
+    paths:
+      - "CMakeLists.txt"
+      - "include/**"
+      - "src/**"
+      - ".github/workflows/cuda-compile.yml"
+
+jobs:
+  nvcc:
+    runs-on: ubuntu-latest
+    container: nvidia/cuda:12.6.3-devel-ubuntu24.04
+    steps:
+      - name: Install build tools
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            cmake git ninja-build
+      - uses: actions/checkout@v4
+      - name: Configure CUDA release build
+        run: >
+          cmake -S . -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_CUDA_ARCHITECTURES=75;80;86;89;90
+          -DBUILD_TESTING=OFF
+      - name: Compile kernels and benchmark
+        run: cmake --build build --parallel
+
