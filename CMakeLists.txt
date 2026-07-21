@@ -12,7 +12,7 @@ option(KERNELFORGE_FAST_MATH "Compile kernels with --use_fast_math" ON)
 add_library(kernelforge STATIC src/rmsnorm.cu)
 target_include_directories(kernelforge PUBLIC include)
 target_compile_options(kernelforge PRIVATE
-    $<$<COMPILE_LANGUAGE:CUDA>:--lineinfo>
+    $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>
     $<$<AND:$<COMPILE_LANGUAGE:CUDA>,$<BOOL:${KERNELFORGE_FAST_MATH}>>:--use_fast_math>
 )
 
@@ -26,4 +26,3 @@ if(BUILD_TESTING)
         COMMAND kernelforge_bench --rows 64 --hidden 1024 --iterations 5
     )
 endif()
-
