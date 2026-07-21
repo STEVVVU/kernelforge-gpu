@@ -29,8 +29,7 @@ jobs:
         run: >
           cmake -S . -B build -G Ninja
           -DCMAKE_BUILD_TYPE=Release
-          -DCMAKE_CUDA_ARCHITECTURES=75;80;86;89;90
+          "-DCMAKE_CUDA_ARCHITECTURES=75;80;86;89;90"
           -DBUILD_TESTING=OFF
       - name: Compile kernels and benchmark
         run: cmake --build build --parallel
-
