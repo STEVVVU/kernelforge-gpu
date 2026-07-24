@@ -213,21 +213,44 @@ int main(int argc, char** argv) {
 
         cudaDeviceProp properties{};
         int device = 0;
+        int driver_version = 0;
+        int runtime_version = 0;
         CUDA_CHECK(cudaGetDevice(&device));
         CUDA_CHECK(cudaGetDeviceProperties(&properties, device));
+        CUDA_CHECK(cudaDriverGetVersion(&driver_version));
+        CUDA_CHECK(cudaRuntimeGetVersion(&runtime_version));
+        const double theoretical_memory_gbps =
+            2.0 * properties.memoryClockRate * properties.memoryBusWidth / 8.0 / 1e6;
         std::string device_name = properties.name;
         std::replace(device_name.begin(), device_name.end(), '"', '\'');
         std::cout << std::fixed << std::setprecision(6)
                   << "{\n"
                   << "  \"device\": \"" << device_name << "\",\n"
+                  << "  \"compute_capability\": \"" << properties.major << "."
+                  << properties.minor << "\",\n"
+                  << "  \"cuda_driver_version\": " << driver_version << ",\n"
+                  << "  \"cuda_runtime_version\": " << runtime_version << ",\n"
+                  << "  \"sm_count\": " << properties.multiProcessorCount << ",\n"
+                  << "  \"global_memory_bytes\": " << properties.totalGlobalMem << ",\n"
+                  << "  \"memory_clock_khz\": " << properties.memoryClockRate << ",\n"
+                  << "  \"memory_bus_width_bits\": " << properties.memoryBusWidth << ",\n"
+                  << "  \"theoretical_memory_gbps\": " << theoretical_memory_gbps << ",\n"
                   << "  \"rows\": " << options.rows << ",\n"
                   << "  \"hidden\": " << options.hidden << ",\n"
+                  << "  \"fused_variant\": \""
+                  << (options.hidden % 4 == 0 ? "float4" : "scalar") << "\",\n"
                   << "  \"iterations\": " << options.iterations << ",\n"
                   << "  \"unfused_ms\": " << unfused_ms << ",\n"
                   << "  \"fused_ms\": " << fused_ms << ",\n"
                   << "  \"speedup\": " << unfused_ms / fused_ms << ",\n"
                   << "  \"unfused_effective_gbps\": " << unfused_gbps << ",\n"
                   << "  \"fused_effective_gbps\": " << fused_gbps << ",\n"
+                  << "  \"unfused_bandwidth_pct\": "
+                  << 100.0 * unfused_gbps / theoretical_memory_gbps << ",\n"
+                  << "  \"fused_bandwidth_pct\": "
+                  << 100.0 * fused_gbps / theoretical_memory_gbps << ",\n"
+                  << "  \"modeled_traffic_reduction\": "
+                  << 1.0 - fused_bytes / unfused_bytes << ",\n"
                   << "  \"fused_max_absolute_error\": " << fused_absolute << ",\n"
                   << "  \"fused_max_relative_error\": " << fused_relative << ",\n"
                   << "  \"unfused_max_absolute_error\": " << unfused_absolute << ",\n"

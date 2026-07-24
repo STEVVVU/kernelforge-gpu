@@ -15,6 +15,7 @@ dev = ["pytest>=8", "ruff>=0.5"]
 
 [project.scripts]
 kernelforge-analysis = "kernelforge.cli:main"
+kernelforge-matrix = "kernelforge.matrix:main"
 
 [tool.setuptools]
 package-dir = {"" = "python"}
@@ -29,4 +30,3 @@ addopts = "-q"
 [tool.ruff]
 line-length = 100
 target-version = "py310"
-
