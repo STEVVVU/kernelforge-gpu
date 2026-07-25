@@ -6,7 +6,7 @@ import argparse
 import json
 import math
 import subprocess
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -82,7 +82,7 @@ def run_matrix(
             raise RuntimeError("benchmark output shape differs from requested shape")
         results.append(result)
     summary = summarize_results(results)
-    summary["generated_at_utc"] = datetime.now(UTC).isoformat()
+    summary["generated_at_utc"] = datetime.now(timezone.utc).isoformat()
     summary["iterations"] = iterations
     summary["warmup"] = warmup
     return summary
@@ -108,4 +108,3 @@ def main(argv: list[str] | None = None) -> int:
     destination.write_text(serialized, encoding="utf-8")
     print(serialized, end="")
     return 0
-
