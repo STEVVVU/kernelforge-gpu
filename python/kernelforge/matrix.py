@@ -108,3 +108,7 @@ def main(argv: list[str] | None = None) -> int:
     destination.write_text(serialized, encoding="utf-8")
     print(serialized, end="")
     return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
