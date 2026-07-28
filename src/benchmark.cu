@@ -215,12 +215,18 @@ int main(int argc, char** argv) {
         int device = 0;
         int driver_version = 0;
         int runtime_version = 0;
+        int memory_clock_khz = 0;
+        int memory_bus_width_bits = 0;
         CUDA_CHECK(cudaGetDevice(&device));
         CUDA_CHECK(cudaGetDeviceProperties(&properties, device));
         CUDA_CHECK(cudaDriverGetVersion(&driver_version));
         CUDA_CHECK(cudaRuntimeGetVersion(&runtime_version));
+        CUDA_CHECK(cudaDeviceGetAttribute(
+            &memory_clock_khz, cudaDevAttrMemoryClockRate, device));
+        CUDA_CHECK(cudaDeviceGetAttribute(
+            &memory_bus_width_bits, cudaDevAttrGlobalMemoryBusWidth, device));
         const double theoretical_memory_gbps =
-            2.0 * properties.memoryClockRate * properties.memoryBusWidth / 8.0 / 1e6;
+            2.0 * memory_clock_khz * memory_bus_width_bits / 8.0 / 1e6;
         std::string device_name = properties.name;
         std::replace(device_name.begin(), device_name.end(), '"', '\'');
         std::cout << std::fixed << std::setprecision(6)
@@ -232,8 +238,8 @@ int main(int argc, char** argv) {
                   << "  \"cuda_runtime_version\": " << runtime_version << ",\n"
                   << "  \"sm_count\": " << properties.multiProcessorCount << ",\n"
                   << "  \"global_memory_bytes\": " << properties.totalGlobalMem << ",\n"
-                  << "  \"memory_clock_khz\": " << properties.memoryClockRate << ",\n"
-                  << "  \"memory_bus_width_bits\": " << properties.memoryBusWidth << ",\n"
+                  << "  \"memory_clock_khz\": " << memory_clock_khz << ",\n"
+                  << "  \"memory_bus_width_bits\": " << memory_bus_width_bits << ",\n"
                   << "  \"theoretical_memory_gbps\": " << theoretical_memory_gbps << ",\n"
                   << "  \"rows\": " << options.rows << ",\n"
                   << "  \"hidden\": " << options.hidden << ",\n"
