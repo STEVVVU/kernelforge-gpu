@@ -9,4 +9,5 @@ dist/
 artifacts/*
 !artifacts/.gitkeep
 !artifacts/analytical.json
-
+!artifacts/benchmark_matrix.json
+!artifacts/kernelforge-fused.ncu-rep
