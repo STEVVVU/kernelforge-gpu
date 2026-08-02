@@ -36,12 +36,39 @@ capacity for fewer launches and less DRAM traffic.
 
 - Implemented fused residual RMSNorm in CUDA C++ using `float4` vectorization,
   warp-shuffle reductions, dynamic shared memory, and scalar fallback dispatch.
-- Reduced modeled global-memory traffic by **42.86%** and established a
-  **1.75x bandwidth-bound speedup ceiling** versus a three-kernel FP32
-  baseline.
-- Built a CUDA-event benchmark with a double-accumulation CPU oracle,
-  correctness gates, effective-bandwidth reporting, Docker packaging, and
-  Nsight Compute profiling hooks.
+- Measured a **1.876x geometric-mean speedup** over a three-kernel baseline
+  across five workloads on an NVIDIA Tesla T4, peaking at **2.059x**, with
+  maximum absolute error of **1e-6**.
+- Reduced modeled global-memory traffic by **42.86%** and built a reproducible
+  CUDA-event benchmark, double-accumulation CPU oracle, scalar control,
+  CUDA compile CI, and persisted Nsight Compute evidence.
+
+## Measured Tesla T4 result
+
+Each workload used 25 warmup launches followed by 200 CUDA-event-timed
+iterations on a Tesla T4 (compute capability 7.5) with CUDA 13.2. The matrix
+includes common transformer widths, a non-vectorized 4,095-wide control, and
+an 8,192-wide row.
+
+| Shape | Fused dispatch | Baseline | Fused | Speedup |
+| --- | --- | ---: | ---: | ---: |
+| 4,096 x 768 | `float4` | 0.3159 ms | 0.1534 ms | **2.059x** |
+| 4,096 x 1,024 | `float4` | 0.4158 ms | 0.2080 ms | **1.999x** |
+| 4,096 x 4,095 | scalar | 1.6043 ms | 1.0194 ms | **1.574x** |
+| 4,096 x 4,096 | `float4` | 1.5900 ms | 0.8008 ms | **1.986x** |
+| 1,024 x 8,192 | `float4` | 0.8036 ms | 0.4453 ms | **1.805x** |
+
+The geometric-mean speedup is **1.876x**. Every result passed the CPU oracle
+with maximum absolute error at or below **1e-6**. The adjacent 4,095/4,096
+cases exercise scalar and vector dispatch without materially changing the
+tensor size; the vector path reduced fused latency by 21.4%.
+
+Raw results, device metadata, and per-shape correctness values are committed
+in [`artifacts/benchmark_matrix.json`](artifacts/benchmark_matrix.json). The
+corresponding Nsight Compute capture is available as
+[`artifacts/kernelforge-fused.ncu-rep`](artifacts/kernelforge-fused.ncu-rep).
+These measurements establish performance on one T4, not every GPU
+architecture.
 
 ## Analytical result
 
@@ -64,8 +91,8 @@ effective GB/s, and maximum correctness errors as JSON.
 
 ## Build and benchmark
 
-Requirements: CUDA Toolkit 12.x, CMake 3.24+, and an NVIDIA GPU with compute
-capability 7.5 or newer.
+Requirements: CUDA Toolkit 12.6+, CMake 3.24+, Python 3.10+, and an NVIDIA GPU
+with compute capability 7.5 or newer.
 
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
@@ -73,6 +100,10 @@ cmake --build build --parallel
 ./build/kernelforge_bench \
   --rows 4096 --hidden 4096 --iterations 200 \
   > artifacts/benchmark.json
+
+PYTHONPATH=python python3 -m kernelforge.matrix \
+  --binary build/kernelforge_bench \
+  --output artifacts/benchmark_matrix.json
 ```
 
 Or build with the pinned CUDA development image:
@@ -95,6 +126,9 @@ Nsight Compute for:
 - percentage of peak sustained DRAM throughput;
 - active warps;
 - separate scalar or vector fused kernel names.
+
+The script persists both the JSON benchmark matrix and an `.ncu-rep` capture
+for independent inspection.
 
 ```bash
 bash scripts/profile.sh
@@ -123,6 +157,7 @@ src/rmsnorm.cu                  baseline and fused kernels
 src/benchmark.cu                CPU oracle, CUDA-event timing, JSON report
 python/kernelforge/             reference and traffic model
 scripts/profile.sh              Nsight Compute capture
+artifacts/                      analytical and measured evidence
 tests/                          hardware-independent correctness checks
 ```
 
