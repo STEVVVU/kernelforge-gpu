@@ -34,14 +34,14 @@ capacity for fewer launches and less DRAM traffic.
 
 ## Resume highlights
 
-- Implemented fused residual RMSNorm in CUDA C++ using `float4` vectorization,
-  warp-shuffle reductions, dynamic shared memory, and scalar fallback dispatch.
-- Measured a **1.876x geometric-mean speedup** over a three-kernel baseline
-  across five workloads on an NVIDIA Tesla T4, peaking at **2.059x**, with
-  maximum absolute error of **1e-6**.
-- Reduced modeled global-memory traffic by **42.86%** and built a reproducible
-  CUDA-event benchmark, double-accumulation CPU oracle, scalar control,
-  CUDA compile CI, and persisted Nsight Compute evidence.
+- Combined three transformer operations into one CUDA C++ RMSNorm kernel,
+  eliminating intermediate memory writes and extra kernel launches.
+- Achieved a **1.876x geometric-mean speedup** across five NVIDIA Tesla T4
+  workloads, with a **2.059x** peak speedup and **1e-6** maximum error.
+- Reduced modeled global-memory traffic by **42.86%** using `float4` loads,
+  shared-memory reuse, and warp-shuffle reductions.
+- Built reproducible CUDA-event benchmarks, CPU correctness checks, scalar
+  fallback coverage, CUDA compile CI, and a checked-in Nsight Compute report.
 
 ## Measured Tesla T4 result
 
