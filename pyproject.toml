@@ -12,10 +12,22 @@ license = { text = "MIT" }
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.5"]
+# Library baselines the hand-written CUDA kernel is compared against.
+# torch is pinned because the comparison table quotes its version; a silent
+# minor bump can change inductor's fusion decisions and therefore the numbers.
+# triton is only installed on Linux -- upstream publishes manylinux wheels
+# exclusively, so the Triton row is Linux+GPU only by construction, not by
+# choice. torch >=2.4 is the floor for torch.nn.functional.rms_norm.
+baseline = [
+    "torch==2.13.0",
+    "numpy>=2,<3",
+    "triton==3.7.1; platform_system == 'Linux'",
+]
 
 [project.scripts]
 kernelforge-analysis = "kernelforge.cli:main"
 kernelforge-matrix = "kernelforge.matrix:main"
+kernelforge-compare = "kernelforge.compare:main"
 
 [tool.setuptools]
 package-dir = {"" = "python"}
@@ -30,3 +42,9 @@ addopts = "-q"
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+
+[tool.ruff.lint.isort]
+# `kernelforge` lives under python/, which ruff's src heuristics do not infer,
+# so without this it is classified third-party and every test's import block is
+# reported as unsorted (a pre-existing finding on newer ruff, not new here).
+known-first-party = ["kernelforge"]
