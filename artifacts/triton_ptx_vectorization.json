@@ -1,0 +1,181 @@
+{
+  "cuda_vector_path_divisor": 4,
+  "divisibility_vs_mask_control": {
+    "divisibility_explains_fallback": true,
+    "mask_alone_suppresses_vectorization": false,
+    "masked_bound_hinted": {
+      "global_accesses": {
+        "ld.global.v4.b32": 8,
+        "st.global.v4.b32": 8
+      },
+      "scalar_global_accesses": 0,
+      "vector_global_accesses": 16
+    },
+    "masked_bound_unhinted": {
+      "global_accesses": {
+        "ld.global.b32": 32,
+        "st.global.b32": 32
+      },
+      "scalar_global_accesses": 64,
+      "vector_global_accesses": 0
+    },
+    "unmasked_bound_hinted": {
+      "global_accesses": {
+        "ld.global.v4.b32": 8,
+        "st.global.v4.b32": 8
+      },
+      "scalar_global_accesses": 0,
+      "vector_global_accesses": 16
+    },
+    "unmasked_bound_unhinted": {
+      "global_accesses": {
+        "ld.global.v4.b32": 8,
+        "st.global.v4.b32": 8
+      },
+      "scalar_global_accesses": 0,
+      "vector_global_accesses": 16
+    }
+  },
+  "executed": false,
+  "note": "PTX-only lowering on a host with no GPU. Instruction counts, not timings; no latency or correctness is implied.",
+  "num_warps": 8,
+  "target_arch": "sm_75",
+  "triton_divisibility_tier": 16,
+  "triton_version": "3.7.1",
+  "widths": [
+    {
+      "alignment_hinted_arguments": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "block_size": 1024,
+      "cuda_takes_float4_path": true,
+      "global_accesses": {
+        "ld.global.v4.b32": 3,
+        "st.global.v4.b32": 1
+      },
+      "hidden": 768,
+      "implementations_disagree": false,
+      "scalar_global_accesses": 0,
+      "shared_bytes": 32,
+      "triton_vectorization_expected": true,
+      "triton_vectorized": true,
+      "vector_global_accesses": 4
+    },
+    {
+      "alignment_hinted_arguments": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "block_size": 1024,
+      "cuda_takes_float4_path": true,
+      "global_accesses": {
+        "ld.global.v4.b32": 3,
+        "st.global.v4.b32": 1
+      },
+      "hidden": 1024,
+      "implementations_disagree": false,
+      "scalar_global_accesses": 0,
+      "shared_bytes": 32,
+      "triton_vectorization_expected": true,
+      "triton_vectorized": true,
+      "vector_global_accesses": 4
+    },
+    {
+      "alignment_hinted_arguments": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "block_size": 4096,
+      "cuda_takes_float4_path": true,
+      "global_accesses": {
+        "ld.global.b32": 48,
+        "st.global.b32": 16
+      },
+      "hidden": 4092,
+      "implementations_disagree": true,
+      "scalar_global_accesses": 64,
+      "shared_bytes": 4096,
+      "triton_vectorization_expected": false,
+      "triton_vectorized": false,
+      "vector_global_accesses": 0
+    },
+    {
+      "alignment_hinted_arguments": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "block_size": 4096,
+      "cuda_takes_float4_path": false,
+      "global_accesses": {
+        "ld.global.b32": 48,
+        "st.global.b32": 16
+      },
+      "hidden": 4095,
+      "implementations_disagree": false,
+      "scalar_global_accesses": 64,
+      "shared_bytes": 4096,
+      "triton_vectorization_expected": false,
+      "triton_vectorized": false,
+      "vector_global_accesses": 0
+    },
+    {
+      "alignment_hinted_arguments": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "block_size": 4096,
+      "cuda_takes_float4_path": true,
+      "global_accesses": {
+        "ld.global.v4.b32": 12,
+        "st.global.v4.b32": 4
+      },
+      "hidden": 4096,
+      "implementations_disagree": false,
+      "scalar_global_accesses": 0,
+      "shared_bytes": 32,
+      "triton_vectorization_expected": true,
+      "triton_vectorized": true,
+      "vector_global_accesses": 16
+    },
+    {
+      "alignment_hinted_arguments": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "block_size": 8192,
+      "cuda_takes_float4_path": true,
+      "global_accesses": {
+        "ld.global.v4.b32": 24,
+        "st.global.v4.b32": 8
+      },
+      "hidden": 8192,
+      "implementations_disagree": false,
+      "scalar_global_accesses": 0,
+      "shared_bytes": 32,
+      "triton_vectorization_expected": true,
+      "triton_vectorized": true,
+      "vector_global_accesses": 32
+    }
+  ]
+}

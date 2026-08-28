@@ -11,3 +11,6 @@ artifacts/*
 !artifacts/analytical.json
 !artifacts/benchmark_matrix.json
 !artifacts/kernelforge-fused.ncu-rep
+# PTX access counts from scripts/triton_codegen_check.py. Committed because the
+# README cites it; generated without a GPU, so it is reproducible in CI.
+!artifacts/triton_ptx_vectorization.json

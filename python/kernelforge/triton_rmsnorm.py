@@ -20,20 +20,66 @@ attributable to codegen and not to a different algorithm:
 * **Masked tail.** Out-of-range lanes load ``0.0``, so they contribute nothing
   to the sum-of-squares. That is what lets the 4,095-wide control shape run on
   the same kernel, where the CUDA side instead dispatches a separate scalar
-  kernel.
+  kernel. The mask costs nothing in access width -- see the note below.
 * **One on-chip pass.** The row is loaded once into registers and reused for
   the rescale, mirroring the CUDA kernel's shared-memory reuse. Triton chooses
   registers where the CUDA kernel chooses dynamic shared memory; both pay an
   occupancy cost, and both therefore have a width ceiling.
 
-Two things are intentionally *not* matched, because Triton has no equivalent
-knob and pretending otherwise would be dishonest:
+One thing is intentionally *not* matched, because Triton has no equivalent knob:
+the CUDA build uses ``--use_fast_math``, while Triton's fp32 lowering is its own
+(it emits ``sqrt.approx.ftz.f32`` here, which is the fast path anyway).
 
-* The CUDA build uses ``--use_fast_math``; Triton's fp32 defaults are its own.
-* The CUDA kernel dispatches an explicit ``float4`` path. Triton emits
-  vectorized loads itself based on the access pattern, so there is no
-  scalar/vector fork to mirror. This is exactly the "what does the compiler do
-  for you" question the comparison exists to answer.
+Vectorization: the two implementations disagree on a band of widths
+------------------------------------------------------------------
+
+The CUDA kernel forks an explicit ``float4`` path (``fused_vector_kernel``) at
+``hidden % 4 == 0``. Triton also emits 16-byte accesses -- but it decides on a
+*coarser* rule, and the gap between the two rules is a real, narrow band of
+widths where the hand-written kernel gets wide accesses and Triton does not.
+
+Triton vectorizes only what it can prove in bounds. Its sole divisibility tier
+is 16: ``BaseBackend.parse_attr`` emits exactly ``["tt.divisibility", 16]`` and
+nothing else, set by ``get_int_specialization`` (``arg % 16 == 0``) and
+``get_tensor_specialization`` (``data_ptr() % 16 == 0``). There is no
+divisible-by-4 tier, so a width that is a multiple of 4 but not of 16 carries no
+usable hint and the whole row falls back to ``ld.global.b32``.
+
+Measured by lowering to PTX for sm_75 with the hints a real torch launch would
+specialize on (``scripts/triton_codegen_check.py``, which CI runs; counts in
+``artifacts/triton_ptx_vectorization.json``):
+
+========  ==================  =====================  ==========
+ hidden    CUDA ``float4``?    Triton vector PTX?     verdict
+========  ==================  =====================  ==========
+    768    yes                 yes                    agree
+   1024    yes                 yes                    agree
+   4092    yes                 **no** (64 scalar)     CUDA only
+   4095    no                  no                     agree
+   4096    yes                 yes                    agree
+   8192    yes                 yes                    agree
+========  ==================  =====================  ==========
+
+The mask is **not** the cause, which is worth stating because it is the
+intuitive guess and it is wrong. An A/B control (``run_hint_control`` in the same
+script) compiles a masked kernel with and without a divisibility hint on the
+bound: hinted, it emits ``ld.global.v4.b32``; unhinted, it goes scalar. A masked
+kernel vectorizes perfectly well. Predication costs nothing in access width;
+only unprovable divisibility does.
+
+The framing this supports is narrower than "hand-written CUDA vectorizes and
+Triton doesn't", and narrower is the honest version. Both reach 16-byte accesses
+on the shapes real models use -- 768, 1024, 4096, 8192 are all multiples of 16,
+and on those Triton needs no help. What the hand-written kernel buys is control
+over *where the cliff sits*: it chose the divisor (4) and can fork on it, while
+Triton's divisor is fixed at 16 by its specialization machinery and is not a
+parameter the kernel author can reach. On a width like 4,092 that difference is
+the whole access width of the kernel. Knowing the cliff exists, and being able to
+move it, is the argument for hand-writing -- not a blanket codegen deficit.
+
+Whether those extra transactions actually cost latency on a T4 is a separate
+question that needs a GPU; an instruction count is not a runtime. The comparison
+harness measures that when a GPU runner is attached.
 """
 
 from __future__ import annotations
