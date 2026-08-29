@@ -1,0 +1,168 @@
+name: baseline-comparison
+
+# Compares the hand-written fused CUDA kernel against torch / torch.compile /
+# Triton. The work is split by what a hosted runner can actually prove:
+#
+#   Tier 1 (runs here)  correctness -- do the baselines compute the SAME formula
+#                       as the CUDA kernel? CPU-only, no GPU needed. This is the
+#                       tier that makes any latency table meaningful.
+#   Tier 2 (runs here)  nvcc compiles the kernel + the Triton kernel is imported
+#                       and its PTX generated, proving both sides build.
+#   Tier 3 (NOT run)    latency and achieved bandwidth. Requires a real NVIDIA
+#                       GPU. GitHub-hosted runners have none, so no timing
+#                       number is produced or published by this workflow. The
+#                       committed T4 figures came from a separate GPU host and
+#                       are attributed to it; see README.
+#
+# To fill tier 3, point `gpu-comparison` below at a self-hosted GPU runner and
+# remove its `if: false` guard. Nothing else needs to change.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  baseline-correctness:
+    name: "tier 1: baseline numerics (CPU, no GPU required)"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install CPU torch and the dev extra
+        # The CPU wheel index keeps the job small and is sufficient: this tier
+        # only proves the formula, never a latency.
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch==2.13.0
+          python -m pip install -e ".[dev]" "numpy>=2,<3"
+      - name: Report the resolved environment
+        run: |
+          python -c "import torch; print('torch', torch.__version__, 'cuda', torch.cuda.is_available())"
+          python -c "import importlib.util as u; print('triton installed:', u.find_spec('triton') is not None)"
+      - run: ruff check python tests
+      - name: Run the full test suite
+        # Includes the equivalence assertions and their negative controls.
+        # GPU-only tests self-skip and are reported as skipped, not passed.
+        run: pytest -rs
+      - name: Verify baselines against the float64 oracle
+        # Nonzero exit if any available baseline computes a different formula.
+        run: |
+          PYTHONPATH=python python -m kernelforge.compare \
+            --correctness-only \
+            --shapes 4096x768,4096x1024,4096x4095,4096x4096,1024x8192 \
+            --output baseline_correctness.json
+      - name: Show the correctness report
+        if: always()
+        run: cat baseline_correctness.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: baseline-correctness-py${{ matrix.python-version }}
+          path: baseline_correctness.json
+
+  cuda-and-triton-compile:
+    name: "tier 2: nvcc + Triton codegen (compile only, no GPU)"
+    runs-on: ubuntu-latest
+    container: nvidia/cuda:12.6.3-devel-ubuntu24.04
+    steps:
+      - name: Install build tools
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            cmake git ninja-build python3 python3-pip python3-venv
+      - uses: actions/checkout@v4
+      - name: Compile the hand-written CUDA kernels
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            "-DCMAKE_CUDA_ARCHITECTURES=75;80;86;89;90" \
+            -DBUILD_TESTING=OFF
+          cmake --build build --parallel
+      - name: Install torch and Triton
+        run: |
+          python3 -m venv /opt/venv
+          /opt/venv/bin/pip install --upgrade pip
+          /opt/venv/bin/pip install -e ".[dev,baseline]"
+      - name: Confirm Triton is present and the CUDA kernel built
+        run: |
+          /opt/venv/bin/python -c "import triton; print('triton', triton.__version__)"
+          test -x build/kernelforge_bench
+      - name: Generate PTX for the Triton kernel without a GPU
+        # `triton.compile` on an explicit target lowers the kernel to PTX with no
+        # device present. This proves the Triton source is valid and lowers for
+        # sm_75 (the T4 the CUDA evidence was measured on); it does NOT execute
+        # it, so it produces no timing and no correctness result.
+        #
+        # `--check-rule` additionally asserts the documented vectorization rule
+        # (Triton emits 16-byte accesses exactly when hidden % 16 == 0) and runs
+        # the A/B control proving that rule is caused by divisibility rather than
+        # by the mask. If a Triton upgrade changes either, this fails and the
+        # README note has to be rewritten instead of silently going stale.
+        run: |
+          /opt/venv/bin/python scripts/triton_codegen_check.py \
+            --arch 75 --check-rule \
+            --output artifacts/triton_ptx_vectorization.json
+      - name: Confirm the committed PTX report still matches
+        # The report is committed because the README cites its numbers. It is
+        # generated without a GPU and is deterministic given the pinned Triton
+        # version and the target arch, so CI can regenerate it and diff -- which
+        # is what stops the cited counts from drifting from the code.
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git diff --exit-code -- artifacts/triton_ptx_vectorization.json
+      - name: Run baseline correctness inside the CUDA image
+        run: /opt/venv/bin/python -m pytest -rs
+
+  container-build:
+    name: "verify the CUDA image builds (CI only; no local Docker daemon)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: false
+          tags: kernelforge:ci
+
+  gpu-comparison:
+    name: "tier 3: latency + bandwidth (GPU-REQUIRED, not exercised)"
+    # No GitHub-hosted runner has an NVIDIA GPU, so this job is intentionally
+    # disabled rather than silently skipped or, worse, faked. Publishing a
+    # timing requires attaching a real GPU runner. Removing this guard and
+    # setting `runs-on` to a CUDA-capable self-hosted label is the only change
+    # needed to fill the empty cells in the README comparison table.
+    if: false
+    runs-on: [self-hosted, gpu, cuda]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the CUDA benchmark
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --parallel
+      - name: Install torch and Triton
+        run: python -m pip install -e ".[dev,baseline]"
+      - name: Prove Triton numerics on the actual device
+        # The GPU-only equivalence tests must go green before any Triton
+        # latency row is allowed to be published.
+        run: PYTHONPATH=python python -m pytest -rs tests/test_baselines.py
+      - name: Measure every implementation on one device
+        # Runs the CUDA matrix and the baselines on the SAME GPU in the same
+        # job; merge_reports refuses a cross-device table.
+        run: |
+          PYTHONPATH=python python -m kernelforge.compare \
+            --binary build/kernelforge_bench \
+            --iterations 200 --warmup 25 \
+            --output artifacts/baseline_comparison.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: baseline-comparison
+          path: artifacts/baseline_comparison.json
