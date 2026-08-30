@@ -1,6 +1,7 @@
-# KernelForge GPU
+# GPU Kernel Optimizer
 
-A CUDA C++ optimization study of a transformer primitive:
+A CUDA C++ GPU kernel optimization project built around a transformer
+primitive:
 
 ```text
 output = RMSNorm(x + residual) * weight
