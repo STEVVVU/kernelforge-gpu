@@ -63,6 +63,37 @@ would require repeated runs on additional NVIDIA generations.
 | `float4` shows no gain | Check alignment, transaction count, and instruction mix |
 | Large widths reject shared-memory launch | Add a two-pass fused fallback |
 
+## Access width vs the Triton baseline
+
+The `float4` fork in `launch_fused_residual_rmsnorm` triggers at
+`hidden % 4 == 0`. The Triton baseline in `python/kernelforge/triton_rmsnorm.py`
+also reaches 16-byte accesses, but it decides on a coarser rule: Triton's only
+divisibility tier is 16 (`BaseBackend.parse_attr` emits exactly
+`tt.divisibility = 16`), so a width that is a multiple of 4 but not of 16 carries
+no usable hint and the row falls back to `ld.global.b32`.
+
+Measured by lowering to PTX for sm_75 with the hints a real launch would
+specialize on (`scripts/triton_codegen_check.py`, counts in
+`artifacts/triton_ptx_vectorization.json`): at `hidden = 4092` the CUDA kernel
+takes its `float4` path while Triton emits 64 scalar global accesses. At 768,
+1,024, 4,096, and 8,192 -- all multiples of 16 -- both vectorize. At 4,095
+neither does.
+
+The mask is not the cause, which is worth recording because it is the intuitive
+guess. An A/B control compiles a masked kernel with and without a divisibility
+hint on its bound: hinted, it emits `ld.global.v4.b32`. Predication costs nothing
+in access width; only unprovable divisibility does.
+
+Two consequences for the experiments above:
+
+- The `float4 shows no gain` row now has a companion question: whether the extra
+  transactions at a `%4`-but-not-`%16` width cost measurable latency, or whether
+  the kernel is bound elsewhere. An instruction count is not a runtime and this
+  is unmeasured -- it needs the GPU comparison job.
+- If a two-pass fallback is added for large rows, its tail handling should keep
+  the `%4` fork rather than adopting a single masked path, since that is the
+  degree of freedom Triton does not expose.
+
 ## Known boundary
 
 The one-row shared-memory design is intentionally optimized for hidden widths
