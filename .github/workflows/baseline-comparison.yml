@@ -46,17 +46,19 @@ jobs:
         run: |
           python -c "import torch; print('torch', torch.__version__, 'cuda', torch.cuda.is_available())"
           python -c "import importlib.util as u; print('triton installed:', u.find_spec('triton') is not None)"
-      - run: ruff check python tests
+      - run: ruff check python tests scripts
       - name: Run the full test suite
         # Includes the equivalence assertions and their negative controls.
         # GPU-only tests self-skip and are reported as skipped, not passed.
         run: pytest -rs
       - name: Verify baselines against the float64 oracle
         # Nonzero exit if any available baseline computes a different formula.
+        # 4096x4092 is included because it is the width where the CUDA float4
+        # fork and Triton's %16 rule disagree; the formula must still match there.
         run: |
           PYTHONPATH=python python -m kernelforge.compare \
             --correctness-only \
-            --shapes 4096x768,4096x1024,4096x4095,4096x4096,1024x8192 \
+            --shapes 4096x768,4096x1024,4096x4092,4096x4095,4096x4096,1024x8192 \
             --output baseline_correctness.json
       - name: Show the correctness report
         if: always()
