@@ -105,7 +105,11 @@ def main(argv: list[str] | None = None) -> int:
     serialized = json.dumps(report, indent=2, sort_keys=True) + "\n"
     destination = Path(args.output)
     destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.write_text(serialized, encoding="utf-8")
+    # newline="\n" so the artifact is byte-identical on Windows and Linux. This
+    # report is committed under artifacts/ and its figures are quoted in the
+    # README, so its bytes must not depend on the platform that produced it.
+    # See the longer note in scripts/triton_codegen_check.py.
+    destination.write_text(serialized, encoding="utf-8", newline="\n")
     print(serialized, end="")
     return 0
 

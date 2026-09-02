@@ -366,8 +366,17 @@ def compile_for_arch(
             "divisibility_vs_mask_control": control,
         }
         report_path.parent.mkdir(parents=True, exist_ok=True)
+        # newline="\n" pins LF on every platform. Without it Windows text mode
+        # rewrites each \n as \r\n, so the same deterministic lowering emits
+        # different bytes depending on where it ran. That matters more here than
+        # anywhere else in the repo: baseline-comparison.yml regenerates this
+        # exact file and runs `git diff --exit-code` against the committed copy,
+        # so an unpinned newline makes CI's verdict depend on the developer's
+        # core.autocrlf setting rather than on the report's contents.
         report_path.write_text(
-            json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            json.dumps(report, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+            newline="\n",
         )
         print(f"wrote {report_path}")
 

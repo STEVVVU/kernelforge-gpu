@@ -501,7 +501,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.output:
         destination = Path(args.output)
         destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.write_text(serialized, encoding="utf-8")
+        # newline="\n" pins LF cross-platform; see the note in
+        # scripts/triton_codegen_check.py. CI uploads this report as an artifact,
+        # so its bytes should not vary with the host that wrote it.
+        destination.write_text(serialized, encoding="utf-8", newline="\n")
     print(serialized, end="")
     return exit_code
 
