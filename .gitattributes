@@ -1,0 +1,19 @@
+# Normalize line endings in the repository to LF for every text file.
+#
+# This exists because CI has a byte-identity guard: baseline-comparison.yml
+# regenerates artifacts/triton_ptx_vectorization.json and runs
+# `git diff --exit-code` against the committed copy. Without this file that
+# guard's verdict depends on each developer's core.autocrlf setting -- a
+# contributor with autocrlf=false on Windows would commit CRLF and the diff
+# would fail on content that is semantically identical. Pinning eol here makes
+# it a property of the repository instead of a property of a workstation.
+#
+# The generating code pins LF at the point of write as well (newline="\n" in
+# scripts/triton_codegen_check.py and the kernelforge writers), so the two
+# layers agree: the file is written as LF and stored as LF.
+* text eol=lf
+
+# Nsight Compute captures are a binary profiler format. Git's auto-detection
+# already classifies this one correctly, but state it so a future capture that
+# happens to look text-like early on is never mangled by eol conversion.
+*.ncu-rep binary
