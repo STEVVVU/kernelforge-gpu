@@ -1,5 +1,14 @@
 name: ci
 
+# The lean lane: everything checkable with the `dev` extra alone, on the widest
+# supported Python range. torch is deliberately NOT installed here -- it is a
+# heavy optional dependency, and the torch-dependent tier is owned by
+# baseline-comparison.yml, which installs the CPU wheel and enforces the `full`
+# collection profile. The consequence is that tests/test_baselines.py skips in
+# this job, which is fine *because it is declared*: check_test_inventory.py
+# pins what this profile is allowed to skip, so a skip that is not on that list
+# fails the job instead of passing invisibly.
+
 on:
   push:
   pull_request:
@@ -16,6 +25,19 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: python -m pip install -e ".[dev]"
-      - run: ruff check python tests
-      - run: pytest
-
+      # scripts/ is linted here too. It used to be omitted, which meant lint
+      # coverage depended on which workflow happened to run.
+      - run: ruff check python tests scripts
+      - name: Pin the collected-test inventory
+        # Fails if collection drops below the known per-module counts. Without
+        # this, an import guard silently removing a whole module still exits 0.
+        run: python scripts/check_test_inventory.py --profile core
+      - name: Run the suite, reporting skips
+        # -rs prints the skip reasons so an intentional skip is visible in the
+        # log rather than hidden behind a dot.
+        run: pytest -rs
+      - name: Check the README's figures against the committed artifacts
+        # No GPU is involved: this only asserts prose-vs-artifact agreement. The
+        # T4 numbers cannot be re-measured in CI (see the gpu-comparison job in
+        # baseline-comparison.yml), so consistency is the one thing checkable.
+        run: python scripts/check_documented_metrics.py
