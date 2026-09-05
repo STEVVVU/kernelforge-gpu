@@ -47,10 +47,18 @@ jobs:
           python -c "import torch; print('torch', torch.__version__, 'cuda', torch.cuda.is_available())"
           python -c "import importlib.util as u; print('triton installed:', u.find_spec('triton') is not None)"
       - run: ruff check python tests scripts
+      - name: Pin the collected-test inventory
+        # This job installs torch, so tests/test_baselines.py must be collected
+        # in full. Asserting it here is what stops a silently failed torch
+        # install from quietly downgrading this tier into a vacuous pass.
+        run: python scripts/check_test_inventory.py --profile full
       - name: Run the full test suite
         # Includes the equivalence assertions and their negative controls.
         # GPU-only tests self-skip and are reported as skipped, not passed.
         run: pytest -rs
+      - name: Check the README's figures against the committed artifacts
+        # Prose-vs-artifact consistency only; measures nothing and needs no GPU.
+        run: python scripts/check_documented_metrics.py
       - name: Verify baselines against the float64 oracle
         # Nonzero exit if any available baseline computes a different formula.
         # 4096x4092 is included because it is the width where the CUDA float4
