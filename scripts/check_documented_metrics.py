@@ -219,7 +219,28 @@ def main(argv: list[str]) -> int:
     # "Reduced modeled global-memory traffic by **42.86%**" and the restatement in
     # the analytical section. Checked against analytical.json, which is the file
     # that actually derives it, and cross-checked against the per-row model.
-    traffic_pct = analytical["traffic_reduction"] * 100
+    #
+    # Every derived figure below is recomputed from unfused_bytes and fused_bytes
+    # -- the two raw counts -- rather than read from the artifact's own summary
+    # fields, for the same reason the geometric mean is re-derived above: reading
+    # traffic_reduction and bandwidth_bound_speedup_ceiling straight out of the
+    # artifact would let a corrupted summary certify itself, and the README would
+    # be checked against a number nothing had validated.
+    recomputed_saved = analytical["unfused_bytes"] - analytical["fused_bytes"]
+    recomputed_traffic = recomputed_saved / analytical["unfused_bytes"]
+    recomputed_ceiling = analytical["unfused_bytes"] / analytical["fused_bytes"]
+    for key, recomputed in (
+        ("bytes_saved", recomputed_saved),
+        ("traffic_reduction", recomputed_traffic),
+        ("bandwidth_bound_speedup_ceiling", recomputed_ceiling),
+    ):
+        if not math.isclose(recomputed, analytical[key], rel_tol=1e-9):
+            failures.append(
+                f"analytical artifact is internally inconsistent: {key} is "
+                f"{analytical[key]} but its byte counts give {recomputed}"
+            )
+
+    traffic_pct = recomputed_traffic * 100
     for pattern, label in (
         (r"global-memory traffic by \*\*([\d.]+)%\*\*", "traffic reduction"),
         (r"a \*\*([\d.]+)% traffic reduction\*\*", "restated traffic reduction"),
@@ -230,15 +251,29 @@ def main(argv: list[str]) -> int:
             _fail(failures, label, documented, round(traffic_pct, 2), PERCENT_TOLERANCE)
             checked += 1
 
-    # The byte counts in the analytical table.
-    for pattern, key, label in (
-        (r"\|\s*Three-kernel baseline\s*\|\s*([\d,]+) bytes", "unfused_bytes", "unfused bytes"),
-        (r"\|\s*Shared-memory fused\s*\|\s*([\d,]+) bytes", "fused_bytes", "fused bytes"),
-        (r"\|\s*Saved\s*\|\s*\*\*([\d,]+) bytes\*\*", "bytes_saved", "bytes saved"),
+    # The byte counts in the analytical table. unfused/fused are the raw counts;
+    # the saved row is checked against the difference, not against the artifact's
+    # own bytes_saved field.
+    for pattern, actual, label in (
+        (
+            r"\|\s*Three-kernel baseline\s*\|\s*([\d,]+) bytes",
+            float(analytical["unfused_bytes"]),
+            "unfused bytes",
+        ),
+        (
+            r"\|\s*Shared-memory fused\s*\|\s*([\d,]+) bytes",
+            float(analytical["fused_bytes"]),
+            "fused bytes",
+        ),
+        (
+            r"\|\s*Saved\s*\|\s*\*\*([\d,]+) bytes\*\*",
+            float(recomputed_saved),
+            "bytes saved",
+        ),
     ):
         documented = _find_one(readme, pattern, label, failures)
         if documented is not None:
-            _fail(failures, label, documented, float(analytical[key]), 0)
+            _fail(failures, label, documented, actual, 0)
             checked += 1
     if analytical["unfused_bytes"] - analytical["fused_bytes"] != analytical["bytes_saved"]:
         failures.append("analytical artifact: unfused - fused does not equal bytes_saved")
@@ -252,7 +287,7 @@ def main(argv: list[str]) -> int:
             failures,
             "speedup ceiling",
             documented_ceiling,
-            round(analytical["bandwidth_bound_speedup_ceiling"], 2),
+            round(recomputed_ceiling, 2),
             PERCENT_TOLERANCE,
         )
         checked += 1
