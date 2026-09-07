@@ -43,6 +43,15 @@ addopts = "-q"
 line-length = 100
 target-version = "py310"
 
+[tool.ruff.lint]
+# `line-length` above is inert without this. Ruff's default rule set is
+# ["E4", "E7", "E9", "F"], which omits E501 (line-too-long) entirely, so the
+# declared 100-column limit was documentation rather than enforcement -- a
+# 103-character line in tests/test_baselines.py passed `ruff check` cleanly.
+# extend-select keeps the defaults and adds the one rule that makes
+# line-length mean something.
+extend-select = ["E501"]
+
 [tool.ruff.lint.isort]
 # `kernelforge` lives under python/, which ruff's src heuristics do not infer,
 # so without this it is classified third-party and every test's import block is

@@ -100,7 +100,11 @@ def _max_deviation(actual) -> float:
 def test_epsilon_outside_the_root_is_detectable() -> None:
     def wrong(x, residual, weight):
         combined = x + residual
-        return combined * (1.0 / torch.sqrt(combined.pow(2).mean(-1, keepdim=True)) + EPSILON) * weight
+        # Epsilon added *outside* the root rather than under it -- the defect
+        # this test asserts is detectable. Split across lines only for width;
+        # the arithmetic is unchanged.
+        inverse = 1.0 / torch.sqrt(combined.pow(2).mean(-1, keepdim=True)) + EPSILON
+        return combined * inverse * weight
 
     assert _max_deviation(wrong) > EQUIVALENCE_TOLERANCE
 
